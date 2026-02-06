@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multiplication & Division Quiz</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #f0e6fa;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    #app {
+      width: 100%;
+      max-width: 800px;
+      min-height: 400px;
+      padding: 24px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      color: #503c64;
+      margin: 0 0 0.5rem 0;
+    }
+    .subtitle {
+      font-size: 1.15rem;
+      color: #645070;
+      margin-bottom: 1.5rem;
+    }
+    .screen {
+      display: none;
+    }
+    .screen.active {
+      display: block;
+    }
+    .btn {
+      display: inline-block;
+      padding: 16px 32px;
+      margin: 8px;
+      font-size: 1.25rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    }
+    .btn-mint { background: #bdfcc9; color: #3c3c50; }
+    .btn-lavender { background: #e6e6fa; color: #3c3c50; }
+    .btn-pink { background: #ffb6c1; color: #3c3c50; }
+    .btn-peach { background: #ffdab9; color: #3c3c50; }
+    .btn-sky { background: #e0ffff; color: #3c3c50; }
+    .btn-cream { background: #fffdd0; color: #3c3c50; }
+    .question {
+      font-size: 2.5rem;
+      color: #463258;
+      margin: 2rem 0;
+    }
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      margin: 2rem 0;
+    }
+    .option-btn {
+      min-width: 140px;
+      padding: 18px 24px;
+      font-size: 1.5rem;
+    }
+    .hint {
+      font-size: 1rem;
+      color: #786088;
+      margin: 1rem 0;
+    }
+    .score-line {
+      font-size: 1.5rem;
+      color: #463258;
+      margin: 1rem 0;
+    }
+    .pct {
+      font-size: 3rem;
+      font-weight: 700;
+      margin: 1rem 0;
+    }
+    .pct.perfect { color: #50a064; }
+    .pct.other { color: #786088; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="screen-menu" class="screen">
+      <h1>Multiplication & Division Quiz</h1>
+
+      <p class="subtitle">Multiplication — Tables 1–10</p>
+      <button class="btn btn-mint" data-action="play" data-mode="mult" data-range="1-10">Multiply (1–10)</button>
+
+      <div id="unlocked-block-mult" style="display: none;">
+        <p class="subtitle">Multiplication — Tables 11–15</p>
+        <button class="btn btn-lavender" data-action="play" data-mode="mult" data-range="11-15">Multiply (11–15)</button>
+      </div>
+
+      <p class="subtitle" style="margin-top: 1.5rem;">Division — Tables 1–10</p>
+      <button class="btn btn-mint" data-action="play" data-mode="div" data-range="1-10">Divide (1–10)</button>
+
+      <div id="unlocked-block-div" style="display: none;">
+        <p class="subtitle">Division — Tables 11–15</p>
+        <button class="btn btn-lavender" data-action="play" data-mode="div" data-range="11-15">Divide (11–15)</button>
+      </div>
+
+      <div id="locked-block">
+        <p class="hint">Get 100% five games in a row (any mode) to unlock 11–15</p>
+        <p class="hint">Perfect games: <span id="consecutive-count">0</span> / 5</p>
+      </div>
+    </div>
+
+    <div id="screen-game" class="screen">
+      <p class="question" id="question-text"></p>
+      <div class="options" id="options"></div>
+    </div>
+
+    <div id="screen-result" class="screen">
+      <h1>Good Job</h1>
+      <p class="score-line" id="result-score"></p>
+      <p class="pct" id="result-pct"></p>
+      <button class="btn btn-mint" id="btn-play-again">Play again</button>
+      <button class="btn btn-lavender" id="btn-menu">Menu</button>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_CONSECUTIVE = "multQuizConsecutive";
+    const STORAGE_UNLOCKED = "multQuiz11to15Unlocked";
+    const QUESTIONS_PER_GAME = 5;
+
+    function getConsecutivePerfect() {
+      return parseInt(localStorage.getItem(STORAGE_CONSECUTIVE) || "0", 10);
+    }
+    function setConsecutivePerfect(n) {
+      localStorage.setItem(STORAGE_CONSECUTIVE, String(n));
+    }
+    function is11to15Unlocked() {
+      return localStorage.getItem(STORAGE_UNLOCKED) === "1";
+    }
+    function set11to15Unlocked() {
+      localStorage.setItem(STORAGE_UNLOCKED, "1");
+    }
+
+    function randInt(lo, hi) {
+      return lo + Math.floor(Math.random() * (hi - lo + 1));
+    }
+
+    function generateQuestion(use11to15) {
+      const low = use11to15 ? 11 : 1;
+      const high = use11to15 ? 15 : 10;
+      const a = randInt(low, high);
+      const b = randInt(1, 10);
+      const correct = a * b;
+      const options = new Set([correct]);
+      while (options.size < 4) {
+        const offset = randInt(-12, 12);
+        if (offset === 0) continue;
+        const wrong = correct + offset;
+        if (wrong > 0 && wrong !== correct) options.add(wrong);
+      }
+      const arr = Array.from(options);
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = randInt(0, i);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return { a, b, correct, options: arr };
+    }
+
+    function generateDivisionQuestion(use11to15) {
+      const low = use11to15 ? 11 : 1;
+      const high = use11to15 ? 15 : 10;
+      const divisor = randInt(low, high);
+      const quotient = randInt(1, 10);
+      const dividend = divisor * quotient;
+      const correct = quotient;
+      const options = new Set([correct]);
+      while (options.size < 4) {
+        const offset = randInt(-4, 4);
+        if (offset === 0) continue;
+        const wrong = correct + offset;
+        if (wrong > 0 && wrong !== correct) options.add(wrong);
+      }
+      const arr = Array.from(options);
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = randInt(0, i);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return { dividend, divisor, correct, options: arr };
+    }
+
+    function showScreen(id) {
+      document.querySelectorAll(".screen").forEach(el => el.classList.remove("active"));
+      const el = document.getElementById(id);
+      if (el) el.classList.add("active");
+    }
+
+    let gameState = { use11to15: false, mode: "mult", questionIndex: 0, correctCount: 0 };
+
+    function showMenu() {
+      const unlocked = is11to15Unlocked();
+      document.getElementById("unlocked-block-mult").style.display = unlocked ? "block" : "none";
+      document.getElementById("unlocked-block-div").style.display = unlocked ? "block" : "none";
+      document.getElementById("locked-block").style.display = "block";
+      document.getElementById("consecutive-count").textContent = getConsecutivePerfect();
+      showScreen("screen-menu");
+    }
+
+    function showGame(use11to15, mode) {
+      gameState = { use11to15, mode: mode || "mult", questionIndex: 0, correctCount: 0 };
+      showScreen("screen-game");
+      showQuestion();
+    }
+
+    function showQuestion() {
+      const isDiv = gameState.mode === "div";
+      const q = isDiv
+        ? generateDivisionQuestion(gameState.use11to15)
+        : generateQuestion(gameState.use11to15);
+      gameState.currentQ = q;
+
+      const questionText = isDiv
+        ? `${q.dividend} ÷ ${q.divisor} = ?`
+        : `${q.a} × ${q.b} = ?`;
+      document.getElementById("question-text").textContent = questionText;
+
+      const container = document.getElementById("options");
+      container.innerHTML = "";
+      const colors = ["btn-pink", "btn-peach", "btn-sky", "btn-cream"];
+      q.options.forEach((value, i) => {
+        const btn = document.createElement("button");
+        btn.className = "btn option-btn " + colors[i];
+        btn.textContent = value;
+        btn.onclick = () => pickAnswer(value);
+        container.appendChild(btn);
+      });
+    }
+
+    function pickAnswer(value) {
+      const q = gameState.currentQ;
+      if (!q) return;
+      if (value === q.correct) gameState.correctCount++;
+      gameState.questionIndex++;
+      if (gameState.questionIndex >= QUESTIONS_PER_GAME) {
+        const pct = Math.round((gameState.correctCount / QUESTIONS_PER_GAME) * 100);
+        if (pct === 100) {
+          const next = getConsecutivePerfect() + 1;
+          setConsecutivePerfect(next);
+          if (next >= 5 && !is11to15Unlocked()) set11to15Unlocked();
+        } else setConsecutivePerfect(0);
+        showResult({
+          correct: gameState.correctCount,
+          total: QUESTIONS_PER_GAME,
+          pct,
+          use11to15: gameState.use11to15,
+          mode: gameState.mode,
+        });
+      } else {
+        showQuestion();
+      }
+    }
+
+    function showResult(data) {
+      document.getElementById("result-score").textContent = `Score: ${data.correct} / ${data.total}`;
+      const pctEl = document.getElementById("result-pct");
+      pctEl.textContent = data.pct + "%";
+      pctEl.className = "pct " + (data.pct === 100 ? "perfect" : "other");
+      showScreen("screen-result");
+    }
+
+    document.getElementById("screen-menu").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action][data-range][data-mode]");
+      if (!btn) return;
+      const use11to15 = btn.dataset.range === "11-15";
+      const mode = btn.dataset.mode === "div" ? "div" : "mult";
+      showGame(use11to15, mode);
+    });
+
+    document.getElementById("btn-play-again").onclick = () => {
+      showGame(gameState.use11to15, gameState.mode);
+    };
+    document.getElementById("btn-menu").onclick = showMenu;
+
+    showMenu();
+  </script>
+</body>
+</html>
